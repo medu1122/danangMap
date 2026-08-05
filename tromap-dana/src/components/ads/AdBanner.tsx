@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { QuangCao } from '@/types';
@@ -8,53 +8,27 @@ import { QuangCao } from '@/types';
 interface AdBannerProps {
   position: 'top' | 'sidebar';
   limit?: number;
+  ads?: QuangCao[]; // Optional - if provided, uses this instead of fetching
 }
 
-export default function AdBanner({ position, limit = 1 }: AdBannerProps) {
-  const [ads, setAds] = useState<QuangCao[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function AdBanner({ position, limit = 1, ads: propAds }: AdBannerProps) {
+  const [clickedIds, setClickedIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const fetchAds = async () => {
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        
-        const { data, error } = await supabase
-          .from('quang_cao')
-          .select('*')
-          .eq('trang_thai', 'active')
-          .eq('vi_tri', position === 'top' ? 'banner' : 'sidebar')
-          .or(`ngay_bat_dau.is.null,ngay_bat_dau.lte.${today}`)
-          .or(`ngay_ket_thuc.is.null,ngay_ket_thuc.gte.${today}`)
-          .limit(limit);
-
-        if (error) throw error;
-        setAds(data || []);
-        
-        // Track impression (fire and forget)
-        if (data && data.length > 0) {
-          trackImpression(data.map(ad => ad.id));
-        }
-      } catch (error) {
-        console.error('Error fetching ads:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAds();
-  }, [position, limit]);
+  // Filter ads by position
+  const filteredAds = (propAds || []).filter(ad => ad.vi_tri === (position === 'top' ? 'banner' : 'sidebar')).slice(0, limit);
 
   const trackImpression = async (adIds: string[]) => {
-    // Fire and forget - don't wait for response
-    supabase.rpc('increment_ad_impression', { ad_ids: adIds }).then(() => {
-      // Silently track
-    }).catch(() => {
-      // Silently fail
+    adIds.forEach(id => {
+      supabase.rpc('increment_ad_impression', { ad_id: id }).catch(() => {});
     });
   };
 
-  if (loading || ads.length === 0) {
+  // Track impressions on mount
+  if (filteredAds.length > 0) {
+    trackImpression(filteredAds.map(ad => ad.id));
+  }
+
+  if (filteredAds.length === 0) {
     // Placeholder ad
     return (
       <div 
@@ -81,31 +55,34 @@ export default function AdBanner({ position, limit = 1 }: AdBannerProps) {
   if (position === 'sidebar') {
     return (
       <div className="space-y-3">
-        {ads.map((ad) => (
-          <AdItem key={ad.id} ad={ad} />
+        {filteredAds.map((ad) => (
+          <AdItem key={ad.id} ad={ad} clickedIds={clickedIds} setClickedIds={setClickedIds} />
         ))}
       </div>
     );
   }
 
   // For top banner, rotate between ads or show first one
-  const currentAd = ads[Math.floor(Math.random() * ads.length)];
-  return <AdItem ad={currentAd} />;
+  const currentAd = filteredAds[Math.floor(Math.random() * filteredAds.length)];
+  return <AdItem ad={currentAd} clickedIds={clickedIds} setClickedIds={setClickedIds} />;
 }
 
-function AdItem({ ad }: { ad: QuangCao }) {
-  const [clicked, setClicked] = useState(false);
+interface AdItemProps {
+  ad: QuangCao;
+  clickedIds: Set<string>;
+  setClickedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+}
+
+function AdItem({ ad, clickedIds, setClickedIds }: AdItemProps) {
+  const isClicked = clickedIds.has(ad.id);
 
   const handleClick = async () => {
-    if (clicked) return;
-    setClicked(true);
+    if (isClicked) return;
     
-    // Track click (fire and forget)
-    supabase.rpc('increment_ad_click', { ad_id: ad.id }).then(() => {
-      // Silently track
-    }).catch(() => {
-      // Silently fail
-    });
+    setClickedIds(prev => new Set(prev).add(ad.id));
+    
+    // Track click
+    supabase.rpc('increment_ad_click', { ad_id: ad.id }).catch(() => {});
   };
 
   if (!ad.hinh_anh) {
@@ -156,7 +133,6 @@ function AdItem({ ad }: { ad: QuangCao }) {
 export function AdManager({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative">
-      {/* Main content */}
       {children}
     </div>
   );

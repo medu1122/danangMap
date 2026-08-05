@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { TroProvider } from "@/components/providers/TroProvider";
 import "./globals.css";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tromapdana.com';
@@ -110,7 +111,9 @@ export default function RootLayout({
       <body className="antialiased h-screen w-screen overflow-hidden">
         <ThemeProvider>
           <ToastProvider>
-            {children}
+            <TroProvider>
+              {children}
+            </TroProvider>
           </ToastProvider>
         </ThemeProvider>
       </body>

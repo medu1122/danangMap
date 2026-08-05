@@ -11,12 +11,12 @@ import DetailModal from '@/components/modal/DetailModal';
 import SearchBox from '@/components/search/SearchBox';
 import TroChatbot from '@/components/chat/TroChatbot';
 import { useGeolocation } from '@/lib/geolocation';
-import { supabase } from '@/lib/supabase';
-import { NhaTroWithDistance, FilterState, NhaTro } from '@/types';
+import { useTroData } from '@/components/providers/TroProvider';
+import { NhaTroWithDistance, FilterState } from '@/types';
 import { calculateDistance } from '@/lib/utils';
 import { addToHistory } from '@/lib/history';
 import { toggleFavorite, isFavorite as checkIsFavorite } from '@/lib/favorites';
-import { MapPin, RefreshCw, AlertCircle, Info, Heart, Search, X } from 'lucide-react';
+import { MapPin, RefreshCw, AlertCircle, Info, Search, X } from 'lucide-react';
 
 // Dynamic import MapView to avoid SSR issues
 const MapView = dynamic(() => import('@/components/map/MapView'), {
@@ -35,13 +35,13 @@ const PRICE_MAX = 50000000;
 
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [troList, setTroList] = useState<NhaTro[]>([]);
   const [selectedTro, setSelectedTro] = useState<NhaTroWithDistance | null>(null);
   const [showOutOfBounds, setShowOutOfBounds] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [searchResults, setSearchResults] = useState<NhaTro[] | null>(null);
+  const [searchResults, setSearchResults] = useState<NhaTroWithDistance[] | null>(null);
   
   const { location, status, requestLocation } = useGeolocation();
+  const { data, loading, refetch } = useTroData();
   
   const [filters, setFilters] = useState<FilterState>({
     minPrice: 0,
@@ -50,25 +50,10 @@ export default function HomePage() {
     showOnlyNearby: false,
   });
 
-  // Fetch tro list from Supabase
-  const fetchTroList = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('nha_tro')
-        .select('*')
-        .eq('trang_thai', 'active');
-      
-      if (error) throw error;
-      setTroList(data || []);
-    } catch (error) {
-      console.error('Error fetching tro list:', error);
-      setTroList([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTroList();
-  }, [fetchTroList]);
+  // Get tro list from cached data
+  const troList = useMemo(() => {
+    return data?.nha_tro || [];
+  }, [data]);
 
   // Check user location
   useEffect(() => {
@@ -113,21 +98,30 @@ export default function HomePage() {
   }, [selectedTro]);
 
   // Handle search
-  const handleSearch = useCallback((query: string, results: NhaTro[]) => {
+  const handleSearch = useCallback((query: string, results: typeof troList) => {
     if (query && results.length > 0) {
-      setSearchResults(results);
+      setSearchResults(results as NhaTroWithDistance[]);
       setShowSearch(false);
     }
-  }, []);
+  }, [troList]);
 
   // Clear search
   const clearSearch = useCallback(() => {
     setSearchResults(null);
   }, []);
 
-  if (isLoading) {
+  // Initial loading state
+  if (isLoading && loading) {
     return <LoadingScreen onComplete={handleLoadingComplete} />;
   }
+
+  // Hide loading screen after first render
+  useEffect(() => {
+    if (!loading) {
+      const timer = setTimeout(() => setIsLoading(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   // Use search results or full list for display
   const displayList = searchResults || troListWithDistance;
@@ -163,7 +157,7 @@ export default function HomePage() {
 
       {/* Top Ad Banner */}
       <div className="absolute top-0 left-0 right-0 z-[1001] p-2 hidden md:block">
-        <AdBanner position="top" />
+        <AdBanner position="top" ads={data?.quang_cao || []} />
       </div>
 
       {/* Search Bar */}
