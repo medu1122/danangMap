@@ -89,7 +89,7 @@ function AdItem({ ad, clickedIds, setClickedIds }: AdItemProps) {
     // Text-only ad
     return (
       <motion.a
-        href={ad.lien_ket || '#'}
+        href={ad.link_den || '#'}
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
@@ -108,7 +108,7 @@ function AdItem({ ad, clickedIds, setClickedIds }: AdItemProps) {
 
   return (
     <motion.a
-      href={ad.lien_ket || '#'}
+      href={ad.link_den || '#'}
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}

@@ -30,15 +30,17 @@ interface NhaTro {
 
 interface QuangCao {
   id: string;
-  ten_nguoi_dang: string;
-  tieu_de: string;
-  noi_dung: string | null;
-  hinh_anh: string | null;
-  lien_ket: string | null;
-  vi_tri: string;
-  trang_thai: string;
-  luot_xem: number;
-  luot_click: number;
+  vi_tri: 'banner' | 'sidebar' | 'popup';
+  hinh_anh?: string;
+  link_den?: string;
+  ngay_bat_dau?: string;
+  ngay_ket_thuc?: string;
+  trang_thai: 'active' | 'inactive';
+  tieu_de?: string;
+  noi_dung?: string;
+  ten_nguoi_dang?: string;
+  luot_xem?: number;
+  luot_click?: number;
 }
 
 interface TroData {

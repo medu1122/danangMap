@@ -8,9 +8,9 @@ export async function GET() {
     const supabase = createAdminClient();
     
     // Get count and latest update time
-    const { data, error } = await supabase
+    const { data, count, error } = await supabase
       .from('nha_tro')
-      .select('ngay_cap_nhat', { count: 'exact', head: true })
+      .select('ngay_cap_nhat', { count: 'exact' })
       .eq('trang_thai', 'active')
       .order('ngay_cap_nhat', { ascending: false })
       .limit(1);
@@ -21,7 +21,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        count: 0, // Supabase count from header
+        count: count || 0,
         latest_update: latestTro?.ngay_cap_nhat || null,
         timestamp: Date.now(),
       },
