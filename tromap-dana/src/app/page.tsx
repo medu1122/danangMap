@@ -62,8 +62,7 @@ export default function HomePage() {
       setTroList(data || []);
     } catch (error) {
       console.error('Error fetching tro list:', error);
-      // Use mock data if Supabase not configured
-      setTroList(MOCK_TRO_LIST);
+      setTroList([]);
     }
   }, []);
 
@@ -105,7 +104,6 @@ export default function HomePage() {
   // Toggle favorite
   const handleToggleFavorite = useCallback((tro: NhaTroWithDistance) => {
     toggleFavorite(tro);
-    // Force re-render to update favorite state
     setSelectedTro(prev => prev ? { ...prev } : null);
   }, []);
 
@@ -312,103 +310,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-// Mock data for development (when Supabase is not configured)
-const MOCK_TRO_LIST: NhaTro[] = [
-  {
-    id: '1',
-    chu_tro_id: 'ct1',
-    tieu_de: 'Phòng trọ sinh viên gần ĐH Bách Khoa',
-    mo_ta: 'Phòng trọ sạch sẽ, yên tĩnh, gần trường ĐH Bách Khoa Đà Nẵng. Có wifi, nước nóng, camera an ninh.',
-    gia_thang: 2500000,
-    dien_tich: 25,
-    dia_chi: '123 Nguyễn Văn Linh, Hải Châu, Đà Nẵng',
-    lat: 16.0544,
-    lng: 108.2022,
-    facebook_url: 'https://facebook.com/example',
-    trang_thai: 'active',
-    luot_xem: 156,
-    ngay_tao: '2026-07-20T10:00:00Z',
-    ngay_cap_nhat: '2026-07-28T10:00:00Z',
-  },
-  {
-    id: '2',
-    chu_tro_id: 'ct2',
-    tieu_de: 'Nhà trọ cao cấp quận Sơn Trà',
-    mo_ta: 'Nhà trọ mới xây, đầy đủ tiện nghi, gần biển Mỹ An. Phù hợp cho sinh viên và người đi làm.',
-    gia_thang: 4500000,
-    dien_tich: 35,
-    dia_chi: '456 Võ Nguyên Giáp, Sơn Trà, Đà Nẵng',
-    lat: 16.0615,
-    lng: 108.2455,
-    facebook_url: 'https://facebook.com/example2',
-    trang_thai: 'active',
-    luot_xem: 234,
-    ngay_tao: '2026-07-22T10:00:00Z',
-    ngay_cap_nhat: '2026-07-28T10:00:00Z',
-  },
-  {
-    id: '3',
-    chu_tro_id: 'ct3',
-    tieu_de: 'Phòng trọ giá rẻ quận Thanh Khê',
-    mo_ta: 'Phòng trọ giá rẻ, phù hợp sinh viên. Gần chợ, siêu thị, tiện đi lại.',
-    gia_thang: 1500000,
-    dien_tich: 20,
-    dia_chi: '789 Lê Đình Lương, Thanh Khê, Đà Nẵng',
-    lat: 16.0625,
-    lng: 108.1780,
-    facebook_url: 'https://facebook.com/example3',
-    trang_thai: 'active',
-    luot_xem: 89,
-    ngay_tao: '2026-07-25T10:00:00Z',
-    ngay_cap_nhat: '2026-07-28T10:00:00Z',
-  },
-  {
-    id: '4',
-    chu_tro_id: 'ct4',
-    tieu_de: 'Căn hộ mini gần trung tâm',
-    mo_ta: 'Căn hộ mini full nội thất, có gác, gần trung tâm quận Hải Châu. An ninh tốt, có thang máy.',
-    gia_thang: 6000000,
-    dien_tich: 40,
-    dia_chi: '101 Trần Phú, Hải Châu, Đà Nẵng',
-    lat: 16.0680,
-    lng: 108.2200,
-    facebook_url: 'https://facebook.com/example4',
-    trang_thai: 'active',
-    luot_xem: 312,
-    ngay_tao: '2026-07-15T10:00:00Z',
-    ngay_cap_nhat: '2026-07-28T10:00:00Z',
-  },
-  {
-    id: '5',
-    chu_tro_id: 'ct5',
-    tieu_de: 'Phòng trọ sinh viên Liên Chiểu',
-    mo_ta: 'Phòng trọ gần KCN Hòa Khánh, thuận tiện cho sinh viên ĐH Sư Phạm, ĐH Bà Rịa.',
-    gia_thang: 1800000,
-    dien_tich: 22,
-    dia_chi: '222 Điện Biên Phủ, Liên Chiểu, Đà Nẵng',
-    lat: 16.0980,
-    lng: 108.1480,
-    facebook_url: 'https://facebook.com/example5',
-    trang_thai: 'active',
-    luot_xem: 67,
-    ngay_tao: '2026-07-26T10:00:00Z',
-    ngay_cap_nhat: '2026-07-28T10:00:00Z',
-  },
-  {
-    id: '6',
-    chu_tro_id: 'ct6',
-    tieu_de: 'Studio sang trọng gần Ngũ Hành Sơn',
-    mo_ta: 'Studio cao cấp, view núi biển, đầy đủ tiện nghi. Gần cầu tàu, khu du lịch.',
-    gia_thang: 8000000,
-    dien_tich: 45,
-    dia_chi: '55 Võ Văn Kiệt, Ngũ Hành Sơn, Đà Nẵng',
-    lat: 16.0030,
-    lng: 108.2530,
-    facebook_url: 'https://facebook.com/example6',
-    trang_thai: 'active',
-    luot_xem: 445,
-    ngay_tao: '2026-07-10T10:00:00Z',
-    ngay_cap_nhat: '2026-07-28T10:00:00Z',
-  },
-];

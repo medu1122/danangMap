@@ -6,6 +6,18 @@ import { motion } from 'framer-motion';
 import { LogIn, Eye, EyeOff, AlertCircle, Shield, Loader2 } from 'lucide-react';
 import { supabase, signIn } from '@/lib/supabase';
 
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+
+function generateCaptcha() {
+  const num1 = Math.floor(Math.random() * 10) + 1;
+  const num2 = Math.floor(Math.random() * 10) + 1;
+  return {
+    question: `${num1} + ${num2} = ?`,
+    answer: num1 + num2,
+  };
+}
+
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,17 +25,41 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [redirectPath, setRedirectPath] = useState('/dashboard');
+  const [attempts, setAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [captcha, setCaptcha] = useState(generateCaptcha());
+  const [captchaValue, setCaptchaValue] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Check localStorage for attempts on mount
   useEffect(() => {
-    // Get redirect param from middleware
+    const storedAttempts = localStorage.getItem('login_attempts');
+    const storedLockUntil = localStorage.getItem('login_locked_until');
+    
+    if (storedAttempts) {
+      setAttempts(parseInt(storedAttempts, 10));
+    }
+    
+    if (storedLockUntil) {
+      const lockTime = parseInt(storedLockUntil, 10);
+      if (lockTime > Date.now()) {
+        setLockedUntil(lockTime);
+      } else {
+        localStorage.removeItem('login_locked_until');
+        localStorage.removeItem('login_attempts');
+        setAttempts(0);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     const redirect = searchParams.get('redirect');
     if (redirect && redirect.startsWith('/dashboard')) {
       setRedirectPath(redirect);
     }
 
-    // Check if already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         router.push('/dashboard');
@@ -34,14 +70,45 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setCaptchaError('');
+
+    // Check if locked out
+    if (lockedUntil && lockedUntil > Date.now()) {
+      const remaining = Math.ceil((lockedUntil - Date.now()) / 1000 / 60);
+      setError(`Tài khoản tạm khóa. Vui lòng thử lại sau ${remaining} phút.`);
+      return;
+    }
+
+    // Validate CAPTCHA
+    if (attempts >= 3 && parseInt(captchaValue, 10) !== captcha.answer) {
+      setCaptchaError('Mã xác minh không đúng');
+      setCaptcha(generateCaptcha());
+      setCaptchaValue('');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Sign in with Supabase Auth
       const { data: authData, error: authError } = await signIn(email, password);
 
       if (authError) {
-        setError('Email hoặc mật khẩu không đúng');
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        localStorage.setItem('login_attempts', newAttempts.toString());
+
+        // Lock after MAX_ATTEMPTS
+        if (newAttempts >= MAX_ATTEMPTS) {
+          const lockTime = Date.now() + LOCKOUT_DURATION;
+          setLockedUntil(lockTime);
+          localStorage.setItem('login_locked_until', lockTime.toString());
+          setError(`Quá nhiều lần đăng nhập thất bại. Tài khoản tạm khóa 15 phút.`);
+        } else {
+          setError(`Email hoặc mật khẩu không đúng (${MAX_ATTEMPTS - newAttempts} lần thử còn lại)`);
+        }
+        
+        setCaptcha(generateCaptcha());
+        setCaptchaValue('');
         setLoading(false);
         return;
       }
@@ -60,14 +127,16 @@ function LoginForm() {
         .single();
 
       if (adminError || !adminUser) {
-        // Not an admin - sign out and show error
         await supabase.auth.signOut();
         setError('Bạn không có quyền truy cập trang quản trị');
         setLoading(false);
         return;
       }
 
-      // Success - redirect
+      // Reset attempts on success
+      localStorage.removeItem('login_attempts');
+      localStorage.removeItem('login_locked_until');
+      
       router.push(redirectPath);
     } catch (err) {
       console.error('Login error:', err);
@@ -158,6 +227,40 @@ function LoginForm() {
               </div>
             </div>
 
+            {/* CAPTCHA - Show after 3 failed attempts */}
+            {attempts >= 3 && (
+              <div>
+                <label htmlFor="captcha" className="block text-sm font-medium text-[#1A1A2E] mb-2">
+                  Mã xác minh <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-3">
+                  <div className="flex-1 bg-[#F0F9FF] border-2 border-[#00B4D8]/20 rounded-xl px-4 py-3 font-mono text-lg text-[#00B4D8] font-bold">
+                    {captcha.question}
+                  </div>
+                  <input
+                    id="captcha"
+                    type="text"
+                    value={captchaValue}
+                    onChange={(e) => setCaptchaValue(e.target.value)}
+                    required
+                    className="w-24 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#00B4D8] focus:outline-none transition-colors text-center"
+                    placeholder="?"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCaptcha(generateCaptcha())}
+                    className="px-3 py-2 text-gray-400 hover:text-gray-600"
+                    aria-label="Đổi mã"
+                  >
+                    <Loader2 className="w-5 h-5" />
+                  </button>
+                </div>
+                {captchaError && (
+                  <p className="mt-1 text-sm text-red-500">{captchaError}</p>
+                )}
+              </div>
+            )}
+
             {/* Error */}
             {error && (
               <motion.div
@@ -174,7 +277,7 @@ function LoginForm() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (lockedUntil !== null && lockedUntil > Date.now())}
               className="w-full py-4 bg-gradient-to-r from-[#00B4D8] to-[#52B788] text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (

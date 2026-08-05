@@ -8,6 +8,7 @@ import {
   Trash2,
   X,
   Image,
+  ImagePlus,
   Link as LinkIcon,
   Calendar,
   Eye,
@@ -18,6 +19,8 @@ import {
   Check,
   AlertCircle,
   AlertTriangle,
+  Upload,
+  Loader2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -78,6 +81,8 @@ export default function QuangCaoPage() {
   const [formData, setFormData] = useState<AdFormData>(initialFormData);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const fetchAds = useCallback(async () => {
@@ -96,6 +101,49 @@ export default function QuangCaoPage() {
     }
   }, []);
 
+  // Handle image upload to Supabase Storage
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Vui lòng chọn file hình ảnh', 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File quá lớn. Vui lòng chọn file nhỏ hơn 5MB', 'error');
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `ads/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('ad-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('ad-images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, hinh_anh: urlData.publicUrl }));
+      setImagePreview(urlData.publicUrl);
+      showToast('Tải ảnh lên thành công!', 'success');
+    } catch (error) {
+      console.error('Upload error:', error);
+      showToast('Lỗi khi tải ảnh lên', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   useEffect(() => {
     fetchAds();
   }, [fetchAds]);
@@ -103,6 +151,7 @@ export default function QuangCaoPage() {
   const handleOpenModal = (ad?: QuangCao) => {
     if (ad) {
       setEditingAd(ad);
+      setImagePreview(ad.hinh_anh || null);
       setFormData({
         ten_nguoi_dang: ad.ten_nguoi_dang,
         tieu_de: ad.tieu_de,
@@ -116,6 +165,7 @@ export default function QuangCaoPage() {
       });
     } else {
       setEditingAd(null);
+      setImagePreview(null);
       setFormData(initialFormData);
     }
     setShowModal(true);
@@ -501,18 +551,66 @@ export default function QuangCaoPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Link hình ảnh
+                    Hình ảnh quảng cáo
                   </label>
-                  <div className="relative">
-                    <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <div className="space-y-3">
+                    {/* Image preview */}
+                    {(imagePreview || formData.hinh_anh) && (
+                      <div className="relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden">
+                        <img
+                          src={imagePreview || formData.hinh_anh}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setImagePreview(null);
+                            setFormData(prev => ({ ...prev, hinh_anh: '' }));
+                          }}
+                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Upload button */}
+                    <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#00B4D8] hover:bg-gray-50 transition-colors">
+                      {uploadingImage ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin text-[#00B4D8]" />
+                          <span className="text-[#00B4D8]">Đang tải lên...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ImagePlus className="w-5 h-5 text-gray-400" />
+                          <span className="text-gray-600">Tải ảnh lên (tối đa 5MB)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                        </>
+                      )}
+                    </label>
+                    
+                    {/* Or enter URL */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-px bg-gray-200" />
+                      <span className="text-xs text-gray-400">hoặc</span>
+                      <div className="flex-1 h-px bg-gray-200" />
+                    </div>
                     <input
                       type="url"
                       value={formData.hinh_anh}
-                      onChange={(e) =>
-                        setFormData({ ...formData, hinh_anh: e.target.value })
-                      }
-                      className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:border-[#00B4D8] focus:ring-2 focus:ring-[#00B4D8]/20 outline-none"
-                      placeholder="https://example.com/image.jpg"
+                      onChange={(e) => {
+                        setFormData({ ...formData, hinh_anh: e.target.value });
+                        setImagePreview(null);
+                      }}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:border-[#00B4D8] focus:ring-2 focus:ring-[#00B4D8]/20 outline-none"
+                      placeholder="Hoặc dán link ảnh trực tiếp"
                     />
                   </div>
                 </div>

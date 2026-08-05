@@ -85,6 +85,18 @@ CREATE TABLE IF NOT EXISTS admin_users (
   ngay_tao TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Table: lien_he (Contact submissions)
+CREATE TABLE IF NOT EXISTS lien_he (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ho_ten TEXT NOT NULL,
+  email TEXT NOT NULL,
+  so_dt TEXT,
+  loai TEXT NOT NULL CHECK (loai IN ('tu_van', 'quang_cao', 'bao_cao', 'khac')),
+  noi_dung TEXT NOT NULL,
+  da_doc BOOLEAN DEFAULT FALSE,
+  ngay_tao TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_nha_tro_trang_thai ON nha_tro(trang_thai);
 CREATE INDEX IF NOT EXISTS idx_nha_tro_chu_tro ON nha_tro(chu_tro_id);
@@ -156,6 +168,16 @@ CREATE POLICY "Admin can do anything on dong_y" ON dong_y
 -- RLS Policies for admin_users
 CREATE POLICY "Admin can do anything on admin_users" ON admin_users
   FOR ALL USING (auth.role() = 'authenticated');
+
+-- RLS Policies for lien_he (Contact submissions)
+CREATE POLICY "Public can insert lien_he" ON lien_he
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Admin can view lien_he" ON lien_he
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Admin can update lien_he" ON lien_he
+  FOR UPDATE USING (auth.role() = 'authenticated');
 
 -- Function: Auto update ngay_cap_nhat
 CREATE OR REPLACE FUNCTION update_ngay_cap_nhat()

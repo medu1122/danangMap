@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Mail, Phone, MessageCircle, Facebook, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 type ContactType = 'tu_van' | 'quang_cao' | 'bao_cao' | 'khac';
 
@@ -63,11 +64,18 @@ export default function ContactPage() {
     setSubmitStatus('idle');
 
     try {
-      // TODO: Send to Supabase or email service
-      // For now, simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { error } = await supabase
+        .from('lien_he')
+        .insert({
+          ho_ten: formData.ho_ten.trim(),
+          email: formData.email.trim(),
+          so_dt: formData.so_dt.trim() || null,
+          loai: formData.loai,
+          noi_dung: formData.noi_dung.trim(),
+        });
+
+      if (error) throw error;
       
-      // Simulate success
       setSubmitStatus('success');
       setFormData({
         ho_ten: '',
@@ -77,6 +85,7 @@ export default function ContactPage() {
         noi_dung: '',
       });
     } catch (error) {
+      console.error('Contact form error:', error);
       setSubmitStatus('error');
     } finally {
       setIsSubmitting(false);
